@@ -133,7 +133,6 @@
     <script src="https://npmcdn.com/flatpickr/dist/l10n/pt.js"></script>
 
     <script>
-        // Dados extraídos das suas imagens
         const firebaseConfig = {
             apiKey: "AIzaSyCxSySECL8x6UGQlqCLC9o0DZ6wFAb0DbM",
             authDomain: "henriquebarber-f9ba4.firebaseapp.com",
@@ -205,11 +204,25 @@
                 hora: selectedTime
             };
 
-            database.ref('agendamentos/' + novoAgendamento.id).set(novoAgendamento).then(() => {
-                const msg = `💈 *AGENDAMENTO*%0A👤 *Cliente:* ${nome}%0A✂️ *Serviço:* ${servico}%0A📅 *Data:* ${data}%0A⏰ *Hora:* ${selectedTime}`;
-                window.open(`https://wa.me/${tel}?text=${msg}`, '_blank');
-                location.reload();
-            });
+            database.ref('agendamentos/' + novoAgendamento.id).set(novoAgendamento)
+                .then(() => {
+                    const texto = `💈 *AGENDAMENTO*\n👤 *Cliente:* ${nome}\n✂️ *Serviço:* ${servico}\n📅 *Data:* ${data}\n⏰ *Hora:* ${selectedTime}`;
+                    const msg = encodeURIComponent(texto);
+                    
+                    // Usando o link da API do WhatsApp que costuma ser mais estável para disparos
+                    const url = `https://api.whatsapp.com/send?phone=${tel}&text=${msg}`;
+                    
+                    window.open(url, '_blank');
+
+                    // Limpa os campos em vez de dar reload para não travar a abertura do link
+                    alert("Agendamento salvo e enviado para o Henrique!");
+                    document.getElementById('nome').value = "";
+                    selectedTime = null;
+                    renderTimeSlots();
+                })
+                .catch(err => {
+                    alert("Erro ao salvar no banco de dados.");
+                });
         }
 
         function excluirAgendamento(id) {
@@ -225,7 +238,6 @@
             }
         }
 
-        // Atualiza a lista em tempo real para todos os usuários
         database.ref('agendamentos').on('value', (snapshot) => {
             const lista = document.getElementById('listaHistorico');
             let db = [];
