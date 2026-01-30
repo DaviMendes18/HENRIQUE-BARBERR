@@ -26,13 +26,9 @@
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
-            color: white; 
-            padding: 20px; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            margin: 0; 
-            min-height: 100vh;
+            color: white; padding: 20px; 
+            display: flex; flex-direction: column; 
+            align-items: center; margin: 0; min-height: 100vh;
         }
 
         .brand-header { text-align: center; margin-bottom: 20px; }
@@ -130,10 +126,28 @@
 
     <div class="footer">DESENVOLVIDO POR <b>NÓ DIGITAL</b></div>
 
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/pt.js"></script>
 
     <script>
+        // Dados extraídos das suas imagens
+        const firebaseConfig = {
+            apiKey: "AIzaSyCxSySECL8x6UGQlqCLC9o0DZ6wFAb0DbM",
+            authDomain: "henriquebarber-f9ba4.firebaseapp.com",
+            databaseURL: "https://henriquebarber-f9ba4-default-rtdb.firebaseio.com",
+            projectId: "henriquebarber-f9ba4",
+            storageBucket: "henriquebarber-f9ba4.firebasestorage.app",
+            messagingSenderId: "969951925527",
+            appId: "1:969951925527:web:9a4879301c72dfe3b0d352",
+            measurementId: "G-S45QVR8LVK"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
         let selectedTime = null;
         const horariosBase = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
 
@@ -151,20 +165,24 @@
             selectedTime = null;
             if(!dataSel) return;
 
-            const agendados = JSON.parse(localStorage.getItem('barber_db')) || [];
-            horariosBase.forEach(hora => {
-                const isOccupied = agendados.some(a => a.data === dataSel && a.hora === hora);
-                const div = document.createElement('div');
-                div.className = `time-slot ${isOccupied ? 'occupied' : ''}`;
-                div.innerText = hora;
-                if(!isOccupied) {
-                    div.onclick = () => {
-                        document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
-                        div.classList.add('selected');
-                        selectedTime = hora;
-                    };
-                }
-                grid.appendChild(div);
+            database.ref('agendamentos').once('value', (snapshot) => {
+                const agendados = [];
+                snapshot.forEach(child => { agendados.push(child.val()); });
+
+                horariosBase.forEach(hora => {
+                    const isOccupied = agendados.some(a => a.data === dataSel && a.hora === hora);
+                    const div = document.createElement('div');
+                    div.className = `time-slot ${isOccupied ? 'occupied' : ''}`;
+                    div.innerText = hora;
+                    if(!isOccupied) {
+                        div.onclick = () => {
+                            document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
+                            div.classList.add('selected');
+                            selectedTime = hora;
+                        };
+                    }
+                    grid.appendChild(div);
+                });
             });
         }
 
@@ -179,15 +197,19 @@
                 return;
             }
 
-            // ID único gerado pelo tempo em milissegundos
-            const novo = { id: Date.now(), nome, servico, data, hora: selectedTime };
-            let db = JSON.parse(localStorage.getItem('barber_db')) || [];
-            db.push(novo);
-            localStorage.setItem('barber_db', JSON.stringify(db));
+            const novoAgendamento = {
+                id: Date.now(),
+                nome: nome,
+                servico: servico,
+                data: data,
+                hora: selectedTime
+            };
 
-            const msg = `💈 *AGENDAMENTO*%0A👤 *Cliente:* ${nome}%0A✂️ *Serviço:* ${servico}%0A📅 *Data:* ${data}%0A⏰ *Hora:* ${selectedTime}`;
-            window.open(`https://wa.me/${tel}?text=${msg}`, '_blank');
-            location.reload();
+            database.ref('agendamentos/' + novoAgendamento.id).set(novoAgendamento).then(() => {
+                const msg = `💈 *AGENDAMENTO*%0A👤 *Cliente:* ${nome}%0A✂️ *Serviço:* ${servico}%0A📅 *Data:* ${data}%0A⏰ *Hora:* ${selectedTime}`;
+                window.open(`https://wa.me/${tel}?text=${msg}`, '_blank');
+                location.reload();
+            });
         }
 
         function excluirAgendamento(id) {
@@ -195,24 +217,19 @@
             const senhaDigitada = prompt("Acesso Restrito: Digite a senha para excluir:");
 
             if (senhaDigitada === senhaDono) {
-                if(confirm("Deseja remover apenas este agendamento?")) {
-                    let db = JSON.parse(localStorage.getItem('barber_db')) || [];
-                    
-                    // Garante que a comparação seja numérica (Number) para evitar erro de tipo
-                    const novaLista = db.filter(ag => Number(ag.id) !== Number(id));
-                    
-                    localStorage.setItem('barber_db', JSON.stringify(novaLista));
-                    exibirHistorico();
-                    renderTimeSlots();
+                if(confirm("Deseja remover este agendamento?")) {
+                    database.ref('agendamentos/' + id).remove();
                 }
             } else if (senhaDigitada !== null) {
                 alert("Senha incorreta!");
             }
         }
 
-        function exibirHistorico() {
+        // Atualiza a lista em tempo real para todos os usuários
+        database.ref('agendamentos').on('value', (snapshot) => {
             const lista = document.getElementById('listaHistorico');
-            let db = JSON.parse(localStorage.getItem('barber_db')) || [];
+            let db = [];
+            snapshot.forEach(child => { db.push(child.val()); });
             
             db.sort((a, b) => {
                 const d1 = a.data.split('/').reverse().join('');
@@ -239,9 +256,7 @@
                     </div>
                 `;
             });
-        }
-
-        window.onload = exibirHistorico;
+        });
     </script>
 </body>
 </html>
