@@ -65,7 +65,9 @@
         .btn-confirm {
             width: 100%; padding: 18px; background: var(--primary); color: black;
             border: none; border-radius: 15px; font-weight: 800; cursor: pointer;
+            transition: 0.3s;
         }
+        .btn-confirm:active { transform: scale(0.98); }
 
         .history { width: 100%; max-width: 450px; margin-top: 30px; }
         .history h3 { font-size: 13px; color: #555; text-transform: uppercase; border-bottom: 1px solid #222; padding-bottom: 8px; }
@@ -116,7 +118,7 @@
         <label>Horários</label>
         <div class="time-grid" id="timeGrid"></div>
 
-        <button class="btn-confirm" onclick="realizarAgendamento()">Confirmar Agendamento</button>
+        <button class="btn-confirm" id="btnConfirm" onclick="realizarAgendamento()">Confirmar Agendamento</button>
     </div>
 
     <div class="history">
@@ -187,41 +189,52 @@
 
         function realizarAgendamento() {
             const tel = "5561982797226"; 
-            const nome = document.getElementById('nome').value;
-            const servico = document.getElementById('servico').value;
-            const data = document.getElementById('data').value;
+            const nomeInput = document.getElementById('nome');
+            const servicoInput = document.getElementById('servico');
+            const dataInput = document.getElementById('data');
+            const btn = document.getElementById('btnConfirm');
 
-            if (!nome || !data || !selectedTime) {
-                alert("Preencha todos os campos!");
+            if (!nomeInput.value || !dataInput.value || !selectedTime) {
+                alert("Por favor, preencha o nome, a data e escolha um horário.");
                 return;
             }
 
+            // Desativa botão para evitar cliques duplos
+            btn.disabled = true;
+            btn.innerText = "Agendando...";
+
             const novoAgendamento = {
                 id: Date.now(),
-                nome: nome,
-                servico: servico,
-                data: data,
+                nome: nomeInput.value,
+                servico: servicoInput.value,
+                data: dataInput.value,
                 hora: selectedTime
             };
 
             database.ref('agendamentos/' + novoAgendamento.id).set(novoAgendamento)
                 .then(() => {
-                    const texto = `💈 *AGENDAMENTO*\n👤 *Cliente:* ${nome}\n✂️ *Serviço:* ${servico}\n📅 *Data:* ${data}\n⏰ *Hora:* ${selectedTime}`;
-                    const msg = encodeURIComponent(texto);
+                    // Texto da Mensagem
+                    const msgTexto = `💈 *NOVO AGENDAMENTO*\n\n👤 *Cliente:* ${novoAgendamento.nome}\n✂️ *Serviço:* ${novoAgendamento.servico}\n📅 *Data:* ${novoAgendamento.data}\n⏰ *Hora:* ${novoAgendamento.hora}\n\n_Enviado via Nó Digital_`;
                     
-                    // Usando o link da API do WhatsApp que costuma ser mais estável para disparos
-                    const url = `https://api.whatsapp.com/send?phone=${tel}&text=${msg}`;
+                    const wpUrl = `https://wa.me/${tel}?text=${encodeURIComponent(msgTexto)}`;
                     
-                    window.open(url, '_blank');
+                    // Abre o WhatsApp
+                    window.open(wpUrl, '_blank');
 
-                    // Limpa os campos em vez de dar reload para não travar a abertura do link
-                    alert("Agendamento salvo e enviado para o Henrique!");
-                    document.getElementById('nome').value = "";
+                    // Feedback e Limpeza
+                    alert("Sucesso! Seu horário foi reservado e enviado para o Henrique.");
+                    
+                    nomeInput.value = "";
+                    dataInput.value = "";
                     selectedTime = null;
+                    btn.disabled = false;
+                    btn.innerText = "Confirmar Agendamento";
                     renderTimeSlots();
                 })
                 .catch(err => {
-                    alert("Erro ao salvar no banco de dados.");
+                    alert("Erro ao salvar. Verifique sua conexão.");
+                    btn.disabled = false;
+                    btn.innerText = "Confirmar Agendamento";
                 });
         }
 
@@ -272,4 +285,3 @@
     </script>
 </body>
 </html>
-
