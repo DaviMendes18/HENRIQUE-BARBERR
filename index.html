@@ -67,7 +67,6 @@
             border: none; border-radius: 15px; font-weight: 800; cursor: pointer;
             transition: 0.3s;
         }
-        .btn-confirm:active { transform: scale(0.98); }
 
         .history { width: 100%; max-width: 450px; margin-top: 30px; }
         .history h3 { font-size: 13px; color: #555; text-transform: uppercase; border-bottom: 1px solid #222; padding-bottom: 8px; }
@@ -130,7 +129,6 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/pt.js"></script>
 
@@ -195,11 +193,10 @@
             const btn = document.getElementById('btnConfirm');
 
             if (!nomeInput.value || !dataInput.value || !selectedTime) {
-                alert("Por favor, preencha o nome, a data e escolha um horário.");
+                alert("Preencha todos os campos e escolha um horário!");
                 return;
             }
 
-            // Desativa botão para evitar cliques duplos
             btn.disabled = true;
             btn.innerText = "Agendando...";
 
@@ -211,25 +208,20 @@
                 hora: selectedTime
             };
 
+            const msgTexto = `💈 *NOVO AGENDAMENTO*\n\n👤 *Cliente:* ${novoAgendamento.nome}\n✂️ *Serviço:* ${novoAgendamento.servico}\n📅 *Data:* ${novoAgendamento.data}\n⏰ *Hora:* ${novoAgendamento.hora}\n\n_Enviado via Nó Digital_`;
+            const wpUrl = `https://api.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(msgTexto)}`;
+
             database.ref('agendamentos/' + novoAgendamento.id).set(novoAgendamento)
                 .then(() => {
-                    // Texto da Mensagem
-                    const msgTexto = `💈 *NOVO AGENDAMENTO*\n\n👤 *Cliente:* ${novoAgendamento.nome}\n✂️ *Serviço:* ${novoAgendamento.servico}\n📅 *Data:* ${novoAgendamento.data}\n⏰ *Hora:* ${novoAgendamento.hora}\n\n_Enviado via Nó Digital_`;
-                    
-                    const wpUrl = `https://wa.me/${tel}?text=${encodeURIComponent(msgTexto)}`;
-                    
-                    // Abre o WhatsApp
-                    window.open(wpUrl, '_blank');
-
-                    // Feedback e Limpeza
-                    alert("Sucesso! Seu horário foi reservado e enviado para o Henrique.");
-                    
+                    // Limpeza visual imediata
                     nomeInput.value = "";
                     dataInput.value = "";
                     selectedTime = null;
                     btn.disabled = false;
                     btn.innerText = "Confirmar Agendamento";
-                    renderTimeSlots();
+
+                    // Redirecionamento direto para evitar bloqueio do iPhone
+                    window.location.href = wpUrl;
                 })
                 .catch(err => {
                     alert("Erro ao salvar. Verifique sua conexão.");
@@ -241,7 +233,6 @@
         function excluirAgendamento(id) {
             const senhaDono = "1234"; 
             const senhaDigitada = prompt("Acesso Restrito: Digite a senha para excluir:");
-
             if (senhaDigitada === senhaDono) {
                 if(confirm("Deseja remover este agendamento?")) {
                     database.ref('agendamentos/' + id).remove();
